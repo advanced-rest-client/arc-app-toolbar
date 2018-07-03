@@ -1,0 +1,176 @@
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../paper-input/paper-input-container.html">
+<link rel="import" href="../iron-input/iron-input.html">
+<dom-module id="arc-app-toolbar">
+  <template>
+    <style>
+    :host {
+      display: block;
+      position: relative;
+      height: 64px;
+      padding: 0 16px;
+      pointer-events: none;
+      font-size: var(--arc-app-toolbar-font-size, 20px);
+
+      --paper-input-container-color: var(--arc-app-toolbar-search-label-color, rgba(255, 255, 255, 0.84));
+      --paper-input-container-focus-color: var(--arc-app-toolbar-search-label-focus-color, var(--accent-color));
+    }
+
+    .container {
+      @apply --layout-horizontal;
+      @apply --layout-center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .container ::slotted(*) {
+      pointer-events: auto;
+    }
+
+    .container ::slotted(paper-icon-button) {
+      /* paper-icon-button/issues/33 */
+      font-size: 0;
+    }
+
+    .container ::slotted([main-title]) {
+      pointer-events: none;
+    }
+
+    .container ::slotted([bottom-item]) {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+    }
+
+    .search {
+      @apply --layout-flex;
+      @apply --layout-horizontal;
+      @apply --layout-center-center;
+    }
+
+    .input {
+      width: 50%;
+      max-width: 700px;
+      min-width: 210px;
+      pointer-events: auto;
+    }
+
+    input[type="search"] {
+      @apply --paper-input-container-shared-input-style;
+      color: var(--arc-app-toolbar-search-input-color, #fff);
+    }
+    </style>
+    <div class="container">
+      <slot name="prefix"></slot>
+      <div class="search">
+        <paper-input-container class="input" no-label-float>
+          <label slot="label">Search</label>
+          <iron-input slot="input">
+            <input type="search" on-search="_search">
+          </iron-input>
+        </paper-input-container>
+      </div>
+      <slot name="suffix"></slot>
+    </div>
+  </template>
+  <script>
+  /**
+   * `arc-app-toolbar`
+   * A main toolbar for ARC app
+   *
+   * @customElement
+   * @polymer
+   * @demo demo/index.html
+   */
+  class ArcAppToolbar extends Polymer.Element {
+    static get is() { return 'arc-app-toolbar'; }
+    static get properties() {
+      return {
+        query: {
+          type: String,
+          observer: '_makeQuery'
+        },
+        /**
+         * Whether the most recent query was incremental.
+         */
+        incremental: Boolean,
+        /**
+         * The last sent query to the model.
+         * It is used to compare the results. If the results are for the same
+         * query it is then rendered.
+         */
+        _pendingQuery: String,
+        /**
+         * A flag set when querying state changes
+         */
+        loading: Boolean
+      };
+    }
+    /**
+     * @constructor
+     */
+    constructor() {
+      super();
+      this._resultsHandler = this._resultsHandler.bind(this);
+    }
+
+    connectedCallback() {
+      super.connectedCallback();
+      window.addEventListener('arc-search-results', this._resultsHandler);
+    }
+
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      window.removeEventListener('arc-search-results', this._resultsHandler);
+    }
+    /**
+     * Clears the resutls
+     */
+    clear() {
+
+    }
+
+    _search(e) {
+      if (this.query !== e.target.value) {
+        this.query = e.target.value;
+      }
+    }
+    /**
+     * Dispatches `arc-search` custom event handled by the `arc-models` that
+     * performs the search.
+     * @param {String} q User query
+     */
+    _makeQuery(q) {
+      if (!q) {
+        this.clear();
+        return;
+      }
+      this._pendingQuery = q;
+      const e = new CustomEvent('arc-search', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        detail: {
+          q,
+          incremental: this.incremental || false,
+          type: [] // list of stories to search: history, saved, rest-apis
+        }
+      });
+      this.dispatchEvent(e);
+      if (!e.defaultPrevented) {
+        console.error('Query model not found. Aborting.');
+        return;
+      }
+      this.loading = true;
+    }
+
+    _resultsHandler(e) {
+      console.log(e);
+    }
+  }
+
+  window.customElements.define(ArcAppToolbar.is, ArcAppToolbar);
+  </script>
+</dom-module>
